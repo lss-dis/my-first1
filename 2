@@ -1,0 +1,89 @@
+import os
+import csv
+import re
+
+# --- 环境准备：创建模拟日志文件 ---
+def setup_test_environment():
+    files = {
+        "dev_notes.md": """
+            Update on 2025-10-25: Version v1.2.0. Added biometric login. Author: Zhang San. Status: Completed.
+            Update on 2025-11-05: Version v1.2.1. Refined UI layout. Author: Li Si. Status: Pending.
+        """,
+        "daily_log.txt": """
+            Date: 2025-12-01, Version: v1.3.0, Desc: Database migration, Author: Zhang San, Status: Completed
+            Date: 2025-12-15, Version: v1.3.1, Desc: API Rate Limiting, Author: Li Si, Status: Pending
+            Date: 2025-09-20, Version: v0.9.0, Desc: Legacy Support, Author: Wang Wu, Status: Completed
+        """
+    }
+    for name, content in files.items():
+        with open(name, 'w', encoding='utf-8') as f:
+            f.write(content)
+    print("Step 1: 测试环境初始化完成。")
+
+# --- 第二步：执行任务 (你的 Python 代码) ---
+def execute_task():
+    extracted_data = []
+    # 匹配 2025 Q4 (10-12月)
+    log_pattern = re.compile(
+        r"Date?[:\s]*(2025-1[0-2]-\d{2}).*?Version[:\s]*(v[\d\.]+).*?(?:Desc|Description)[:\s]*(.*?)\.?\s*Author[:\s]*(.*?)\.?\s*Status[:\s]*(\w+)", 
+        re.IGNORECASE | re.DOTALL
+    )
+
+    for filename in os.listdir('.'):
+        if filename.endswith(('.txt', '.md')) and filename not in ['answer.txt', 'update_log.csv']:
+            with open(filename, 'r', encoding='utf-8') as f:
+                content = f.read()
+                matches = log_pattern.findall(content)
+                for m in matches:
+                    extracted_data.append({
+                        'Date': m[0], 'Version': m[1], 'Description': m[2].strip(),
+                        'Author': m[3].strip(), 'Status': m[4].strip()
+                    })
+
+    # 创建 update_log.csv
+    with open('update_log.csv', 'w', newline='', encoding='utf-8') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=['Date', 'Version', 'Description', 'Author', 'Status'])
+        writer.writeheader()
+        writer.writerows(extracted_data)
+
+    # 推理分析
+    pending_counts = {}
+    completed_count = len([d for d in extracted_data if d['Status'].lower() == 'completed'])
+    for d in extracted_data:
+        if d['Status'].lower() == 'pending':
+            pending_counts[d['Author']] = pending_counts.get(d['Author'], 0) + 1
+    
+    top_slacker = max(pending_counts, key=pending_counts.get) if pending_counts else "None"
+    rate = (completed_count / len(extracted_data)) * 100 if extracted_data else 0
+    
+    with open('answer.txt', 'w', encoding='utf-8') as f:
+        f.write(f"Most Pending: {top_slacker}\nCompletion Rate: {rate:.0f}%")
+    print("Step 2: 任务执行脚本运行完毕。")
+
+# --- 第三步：结果验证 (根据飞书模板逻辑) ---
+def verify_results():
+    print("\n--- 验证报告 ---")
+    results = {"Pass": 0, "Fail": 0}
+
+    # 1. 检查文件是否存在
+    files_exist = os.path.exists('update_log.csv') and os.path.exists('answer.txt')
+    print(f"[文件生成] {'✅ 通过' if files_exist else '❌ 失败'}")
+
+    # 2. 检查数据过滤 (应只有 4 条，排除 9 月份)
+    if os.path.exists('update_log.csv'):
+        with open('update_log.csv', 'r') as f:
+            lines = f.readlines()
+            data_count = len(lines) - 1 # 减去表头
+            print(f"[数据过滤] 期望 4 条，实际 {data_count} 条 - {'✅ 通过' if data_count == 4 else '❌ 失败'}")
+
+    # 3. 检查逻辑分析
+    if os.path.exists('answer.txt'):
+        with open('answer.txt', 'r') as f:
+            content = f.read()
+            logic_ok = "Li Si" in content and "50%" in content
+            print(f"[推理正确性] {'✅ 通过' if logic_ok else '❌ 失败'}")
+
+if __name__ == "__main__":
+    setup_test_environment()
+    execute_task()
+    verify_results()

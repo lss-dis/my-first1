@@ -1,0 +1,75 @@
+import os
+import csv
+import re
+
+def generate_tracking_log():
+    # 1. 初始化数据容器
+    extracted_data = []
+    
+    # 定义匹配模式 (假设日志格式为: Date: ..., Version: ..., Desc: ..., Author: ..., Status: ...)
+    # 你可以根据实际文件的书写习惯调整正则
+    log_pattern = re.compile(
+        r"Date:\s*(2025-1[0-2]-\d{2}).*?Version:\s*(v[\d\.]+).*?Desc:\s*(.*?).*?Author:\s*(.*?).*?Status:\s*(\w+)", 
+        re.IGNORECASE | re.DOTALL
+    )
+
+    # 2. 扫描目录下的 .txt 和 .md 文件
+    for filename in os.listdir('.'):
+        if filename.endswith(('.txt', '.md')) and filename != 'answer.txt':
+            with open(filename, 'r', encoding='utf-8') as f:
+                content = f.read()
+                matches = log_pattern.findall(content)
+                for m in matches:
+                    extracted_data.append({
+                        'Date': m[0],
+                        'Version': m[1],
+                        'Description': m[2].strip(),
+                        'Author': m[3].strip(),
+                        'Status': m[4].strip()
+                    })
+
+    # 3. 创建 update_log.csv
+    header = ['Date', 'Version', 'Description', 'Author', 'Status']
+    with open('update_log.csv', 'w', newline='', encoding='utf-8') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=header)
+        writer.writeheader()
+        writer.writerows(extracted_data)
+
+    # 4. 推理分析：统计 Pending 数量和完成进度
+    if not extracted_data:
+        analysis = "未找到符合 2025 Q4 条件的记录。"
+    else:
+        pending_counts = {}
+        completed_count = 0
+        total = len(extracted_data)
+
+        for row in extracted_data:
+            status = row['Status'].lower()
+            author = row['Author']
+            
+            if status == 'pending':
+                pending_counts[author] = pending_counts.get(author, 0) + 1
+            elif status == 'completed':
+                completed_count += 1
+        
+        # 找出 Pending 最多的人
+        if pending_counts:
+            top_slacker = max(pending_counts, key=pending_counts.get)
+            max_pending = pending_counts[top_slacker]
+            pending_info = f"待办任务最多的人是 {top_slacker}，共有 {max_pending} 项 Pending。"
+        else:
+            pending_info = "目前没有待办任务。"
+
+        completion_rate = (completed_count / total) * 100
+        analysis = (f"{pending_info}\n"
+                    f"项目整体完成进度：{completed_count}/{total} "
+                    f"({completion_rate:.2f}%)。")
+
+    # 5. 写入 answer.txt
+    with open('answer.txt', 'w', encoding='utf-8') as f:
+        f.write(analysis)
+
+    print("任务完成：已生成 update_log.csv 和 answer.txt")
+
+if __name__ == "__main__":
+    generate_tracking_log()
